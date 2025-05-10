@@ -1,130 +1,149 @@
-using Xunit;
-using Microsoft.Extensions.Configuration;
-using Aloe.Utils.Configuration.Json;
-using System.IO;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.FileProviders;
 
-namespace Aloe.Utils.Configuration.Json.Tests;
-
-public class ConfigurationAddJsonFilesExtensionsTests
+namespace Aloe.Utils.Configuration.Json.Tests
 {
-    [Fact]
-    public void AddJsonFiles_WithValidFiles_ShouldAddAllFiles()
+    public class ConfigurationExtensionsTests
     {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = new[] { "appsettings.json", "appsettings.Development.json" };
+        [Fact(DisplayName = "builderがnullの場合ArgumentNullExceptionをスローすること")]
+        public void AddJsonFiles_NullBuilder_ThrowsArgumentNullException()
+        {
+            IConfigurationBuilder builder = null!;
+            var files = new[] { "appsettings.json" };
+            Assert.Throws<ArgumentNullException>(() =>
+                ConfigurationExtensions.AddJsonFiles(builder, files));
+        }
 
-        // Act
-        var result = builder.AddJsonFiles(files);
+        [Fact(DisplayName = "filesがnullの場合ArgumentNullExceptionをスローすること")]
+        public void AddJsonFiles_NullFiles_ThrowsArgumentNullException()
+        {
+            var builder = new ConfigurationBuilder();
+            IEnumerable<string> files = null!;
+            Assert.Throws<ArgumentNullException>(() =>
+                builder.AddJsonFiles(files));
+        }
 
-        // Assert
-        Assert.Same(builder, result);
-    }
+        [Theory(DisplayName = "空白パスが含まれる場合ArgumentExceptionをスローすること")]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void AddJsonFiles_WhitespacePath_ThrowsArgumentException(string file)
+        {
+            var builder = new ConfigurationBuilder();
+            var files = new[] { file };
+            Assert.Throws<ArgumentException>(() =>
+                builder.AddJsonFiles(files));
+        }
 
-    [Fact]
-    public void AddJsonFiles_WithEmptyFiles_ShouldNotThrow()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = Array.Empty<string>();
+        [Fact(DisplayName = "nullパスが含まれる場合ArgumentNullExceptionをスローすること")]
+        public void AddJsonFiles_NullPath_ThrowsArgumentNullException()
+        {
+            var builder = new ConfigurationBuilder();
+            string? file = null;
+            var files = new[] { file! };
+            Assert.Throws<ArgumentNullException>(() =>
+                builder.AddJsonFiles(files));
+        }
 
-        // Act & Assert
-        var result = builder.AddJsonFiles(files);
-        Assert.Same(builder, result);
-    }
+        [Fact(DisplayName = "有効なファイルリストを追加するとJsonConfigurationSourceが追加されること")]
+        public void AddJsonFiles_ValidFiles_AddsJsonConfigurationSources()
+        {
+            var builder = new ConfigurationBuilder();
+            var files = new[] { "appsettings.json", "appsettings.Development.json" };
+            var result = builder.AddJsonFiles(files);
+            var sources = builder.Sources.OfType<JsonConfigurationSource>().ToList();
+            Assert.Equal(files.Length, sources.Count);
+            for (int i = 0; i < files.Length; i++)
+            {
+                Assert.Equal(files[i], sources[i].Path);
+                Assert.False(sources[i].Optional);
+                Assert.False(sources[i].ReloadOnChange);
+            }
+            Assert.Same(builder, result);
+        }
 
-    [Fact]
-    public void AddJsonFiles_WithNullFiles_ShouldThrowArgumentNullException()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        IEnumerable<string> files = null!;
+        [Fact(DisplayName = "optionalおよびreloadOnChangeフラグが正しく設定されること")]
+        public void AddJsonFiles_WithFlags_SetsOptionalAndReloadOnChange()
+        {
+            var builder = new ConfigurationBuilder();
+            var files = new[] { "config.json" };
+            const bool optional = true;
+            const bool reloadOnChange = true;
+            var result = builder.AddJsonFiles(files, optional, reloadOnChange);
+            var source = builder.Sources.OfType<JsonConfigurationSource>().Single();
+            Assert.Equal("config.json", source.Path);
+            Assert.True(source.Optional);
+            Assert.True(source.ReloadOnChange);
+            Assert.Same(builder, result);
+        }
 
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => builder.AddJsonFiles(files));
-    }
+        [Fact(DisplayName = "conditionがtrueの場合PathオーバーロードでJsonConfigurationSourceが追加されること")]
+        public void AddJsonFileIf_TrueCondition_PathOverload_AddsSource()
+        {
+            var builder = new ConfigurationBuilder();
+            bool condition = true;
+            string path = "settings.json";
+            const bool optional = true;
+            const bool reloadOnChange = true;
 
-    [Fact]
-    public void AddJsonFiles_WithNullBuilder_ShouldThrowArgumentNullException()
-    {
-        // Arrange
-        IConfigurationBuilder builder = null!;
-        var files = new[] { "appsettings.json" };
+            var result = builder.AddJsonFileIf(condition, path, optional, reloadOnChange);
+            var sources = builder.Sources.OfType<JsonConfigurationSource>().ToList();
 
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => builder.AddJsonFiles(files));
-    }
+            Assert.Single(sources);
+            var source = sources.Single();
+            Assert.Equal(path, source.Path);
+            Assert.Equal(optional, source.Optional);
+            Assert.Equal(reloadOnChange, source.ReloadOnChange);
+            Assert.Same(builder, result);
+        }
 
-    [Fact]
-    public void AddJsonFiles_WithEmptyFilePath_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = new[] { "appsettings.json", "" };
+        [Fact(DisplayName = "conditionがfalseの場合Pathオーバーロードで何も追加されないこと")]
+        public void AddJsonFileIf_FalseCondition_PathOverload_NoSourceAdded()
+        {
+            var builder = new ConfigurationBuilder();
+            bool condition = false;
+            string path = "settings.json";
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => builder.AddJsonFiles(files));
-    }
+            var result = builder.AddJsonFileIf(condition, path, optional: true, reloadOnChange: true);
 
-    [Fact]
-    public void AddJsonFiles_WithWhitespaceFilePath_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = new[] { "appsettings.json", "   " };
+            Assert.Empty(builder.Sources.OfType<JsonConfigurationSource>());
+            Assert.Same(builder, result);
+        }
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => builder.AddJsonFiles(files));
-    }
+        [Fact(DisplayName = "conditionがtrueの場合ProviderオーバーロードでJsonConfigurationSourceが追加されること")]
+        public void AddJsonFileIf_TrueCondition_ProviderOverload_AddsSource()
+        {
+            var builder = new ConfigurationBuilder();
+            bool condition = true;
+            var provider = new NullFileProvider();
+            string path = "config.json";
+            const bool optional = false;
+            const bool reloadOnChange = false;
 
-    [Fact]
-    public void AddJsonFiles_WithDuplicateFiles_ShouldSkipDuplicates()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = new[] { "appsettings.json", "appsettings.json", "APPSETTINGS.JSON" };
+            var result = builder.AddJsonFileIf(condition, provider, path, optional, reloadOnChange);
+            var sources = builder.Sources.OfType<JsonConfigurationSource>().ToList();
 
-        // Act
-        var result = builder.AddJsonFiles(files);
+            Assert.Single(sources);
+            var source = sources.Single();
+            Assert.Equal(path, source.Path);
+            Assert.Equal(optional, source.Optional);
+            Assert.Equal(reloadOnChange, source.ReloadOnChange);
+            Assert.Same(provider, source.FileProvider);
+            Assert.Same(builder, result);
+        }
 
-        // Assert
-        Assert.Same(builder, result);
-    }
+        [Fact(DisplayName = "conditionがfalseの場合Providerオーバーロードで何も追加されないこと")]
+        public void AddJsonFileIf_FalseCondition_ProviderOverload_NoSourceAdded()
+        {
+            var builder = new ConfigurationBuilder();
+            bool condition = false;
+            var provider = new NullFileProvider();
+            string path = "config.json";
 
-    [Fact]
-    public void AddJsonFiles_WithNonExistentFiles_ShouldThrowWhenOptionalIsFalse()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = new[] { "nonexistent.json" };
+            var result = builder.AddJsonFileIf(condition, provider, path);
 
-        // Act & Assert
-        Assert.Throws<FileNotFoundException>(() => builder.AddJsonFiles(files, optional: false));
-    }
-
-    [Fact]
-    public void AddJsonFiles_WithNonExistentFiles_ShouldNotThrowWhenOptionalIsTrue()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = new[] { "nonexistent.json" };
-
-        // Act & Assert
-        var result = builder.AddJsonFiles(files, optional: true);
-        Assert.Same(builder, result);
-    }
-
-    [Fact]
-    public void AddJsonFiles_WithCustomParameters_ShouldApplyParameters()
-    {
-        // Arrange
-        var builder = new ConfigurationBuilder();
-        var files = new[] { "appsettings.json" };
-
-        // Act
-        var result = builder.AddJsonFiles(files, optional: true, reloadOnChange: true);
-
-        // Assert
-        Assert.Same(builder, result);
+            Assert.Empty(builder.Sources.OfType<JsonConfigurationSource>());
+            Assert.Same(builder, result);
+        }
     }
 }
