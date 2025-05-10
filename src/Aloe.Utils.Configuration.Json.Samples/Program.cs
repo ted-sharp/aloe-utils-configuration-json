@@ -1,7 +1,4 @@
-﻿// Program.cs
-using System;
-using System.Linq;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Aloe.Utils.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,12 +9,12 @@ var builder = Host.CreateApplicationBuilder(args);
 // 2. ConfigurationManager に対してベースパスと JSON ファイルを設定
 builder.Configuration
     .SetBasePath(AppContext.BaseDirectory)
-    .AddJsonFiles(new[]
-    {
+    .AddJsonFiles(
+    [
         "appsettings.json",
         "appsettings.PostgreSQL.json",
         "appsettings.Serilog.json"
-    }, optional: false, reloadOnChange: true);
+    ], reloadOnChange: true);
 
 // 3. ビルドして IHost を生成
 using var host = builder.Build();
@@ -31,7 +28,7 @@ Console.WriteLine("=== ConnectionStrings:DefaultConnection ===");
 Console.WriteLine(defaultConn);
 Console.WriteLine();
 
-// 6. （必要に応じて）PostgreSQL セクションを表示
+// 6. PostgreSQL セクションを表示
 var pg = config.GetSection("PostgreSQL");
 Console.WriteLine("=== PostgreSQL Configuration ===");
 Console.WriteLine($"Host     : {pg["Host"]}");
