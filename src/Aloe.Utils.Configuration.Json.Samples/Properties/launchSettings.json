@@ -2,7 +2,7 @@
   "profiles": {
     "Debug": {
       "commandName": "Project",
-      "commandLineArgs": "--standalone --debug -uadmin -ppassword123",
+      "commandLineArgs": "",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       }

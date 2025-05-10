@@ -1,77 +1,52 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+﻿// Program.cs
+using System;
+using System.Linq;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 using Aloe.Utils.Configuration.Json;
+using Microsoft.Extensions.DependencyInjection;
 
-public static class AppConfig
-{
-    public static readonly List<string> ConfigFiles =
-    [
+// 1. .NET 9以降の最小ホスト ビルダーを作成
+var builder = Host.CreateApplicationBuilder(args);
+
+// 2. ConfigurationManager に対してベースパスと JSON ファイルを設定
+builder.Configuration
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFiles(new[]
+    {
         "appsettings.json",
         "appsettings.PostgreSQL.json",
-        "appsettings.Serilog.json",
-    ];
+        "appsettings.Serilog.json"
+    }, optional: false, reloadOnChange: true);
 
-    public static IConfigurationRoot CreateConfigurationRoot()
-    {
-        var builder = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFiles(ConfigFiles)
-            .AddUserSecrets<Program>(optional: true)
-            .AddEnvironmentVariables();
+// 3. ビルドして IHost を生成
+using var host = builder.Build();
 
-        return builder.Build();
-    }
-}
+// 4. IConfiguration を取得
+var config = host.Services.GetRequiredService<IConfiguration>();
 
-public record AppSettings
-{
-    public bool IsStandalone { get; init; }
-    public bool IsDebug { get; init; }
-    public string? Username { get; init; }
-    public string? Password { get; init; }
-}
+// 5. ConnectionStrings:DefaultConnection を表示
+var defaultConn = config.GetConnectionString("DefaultConnection");
+Console.WriteLine("=== ConnectionStrings:DefaultConnection ===");
+Console.WriteLine(defaultConn);
+Console.WriteLine();
 
-public class Program
-{
-    public static int Main(string[] args)
-    {
-        var builder = Host.CreateApplicationBuilder(args);
+// 6. （必要に応じて）PostgreSQL セクションを表示
+var pg = config.GetSection("PostgreSQL");
+Console.WriteLine("=== PostgreSQL Configuration ===");
+Console.WriteLine($"Host     : {pg["Host"]}");
+Console.WriteLine($"Database : {pg["Database"]}");
+Console.WriteLine($"User     : {pg["Username"]}");
+Console.WriteLine($"Password : {pg["Password"]}");
+Console.WriteLine();
 
-        // 設定の追加
-        builder.Configuration.AddConfiguration(AppConfig.CreateConfigurationRoot());
-
-        // サービスの登録
-        builder.Services.AddSingleton<App>();
-        builder.Services.Configure<AppSettings>(
-            builder.Configuration.GetSection("AppSettings"));
-
-        var host = builder.Build();
-        var app = host.Services.GetRequiredService<App>();
-        return app.Run();
-    }
-}
-
-public class App
-{
-    private readonly IConfiguration _configuration;
-    private readonly AppSettings _appSettings;
-
-    public App(IConfiguration configuration, IOptions<AppSettings> appSettings)
-    {
-        this._configuration = configuration;
-        this._appSettings = appSettings.Value;
-    }
-
-    public int Run()
-    {
-        Console.WriteLine("アプリケーションの設定:");
-        Console.WriteLine($"スタンドアロンモード: {this._appSettings.IsStandalone}");
-        Console.WriteLine($"デバッグモード: {this._appSettings.IsDebug}");
-        Console.WriteLine($"ユーザー名: {this._appSettings.Username}");
-        Console.WriteLine($"パスワード: {this._appSettings.Password}");
-
-        return 0;
-    }
-}
+// 7. Serilog セクションを表示
+var serilog = config.GetSection("Serilog");
+Console.WriteLine("=== Serilog Configuration ===");
+Console.WriteLine($"MinimumLevel : {serilog["MinimumLevel"]}");
+Console.WriteLine("WriteTo      : " +
+    String.Join(", ",
+        serilog
+          .GetSection("WriteTo")
+          .GetChildren()
+          .Select(c => c["Name"])));
