@@ -14,7 +14,7 @@
 		<PackageId>Aloe.Utils.Configuration.Json</PackageId>
 		<Version>1.0.0</Version>
 		<Authors>ted-sharp</Authors>
-		<Description>Lightweight JSON configuration processor for .NET applications</Description>
+		<Description>Extension methods for Microsoft.Extensions.Configuration to easily load and manage JSON configuration files in .NET applications</Description>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/ted-sharp/aloe-utils-configuration-json</RepositoryUrl>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
