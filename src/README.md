@@ -12,20 +12,6 @@ A lightweight utility for flexible handling of JSON configuration files.
 * .NET 9 and later
 * Used in conjunction with Microsoft.Extensions.Configuration.Json
 
-## Install
-
-Using NuGet Package Manager:
-
-```cmd
-Install-Package Aloe.Utils.Configuration.Json
-```
-
-Or using .NET CLI:
-
-```cmd
-dotnet add package Aloe.Utils.Configuration.Json
-```
-
 ## Usage
 
 ```csharp
